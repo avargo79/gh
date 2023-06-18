@@ -2,6 +2,7 @@ import_code("/home/asmith/src/ui.src")
 import_code("/home/asmith/src/io.src")
 import_code("/home/asmith/src/wifi.src")
 import_code("/home/asmith/src/net.src")
+import_code("/home/asmith/src/hacks.src")
 
 //////////////////////////////////////////////////////////////////////
 //  Helper functions
@@ -54,10 +55,7 @@ mainMenu = function(_)
 
     menu.addMenuItem("1", "WiFi", @wifiMenu)
     menu.addMenuItem("2", "Net", @netMenu)
-    menu.addMenuItem("3", "Elevate Privs", @netMenu)
-    menu.addMenuItem("4", "Get Bank.txt files", @netMenu)
-    menu.addMenuItem("5", "Get Mail.txt files", @netMenu)
-    menu.addMenuItem("6", "Get passwd", @netMenu)
+    menu.addMenuItem("3", "Hack", @__hackLocal)
     menu.addMenuItem(null, " ", @wifiMenu)
     menu.addMenuItem("x", "Exit", @__exit)
 end function
@@ -210,9 +208,48 @@ __showHelp = function(args)
 end function
 
 //////////////////////////////////////////////////////////////////////
+//  Hack
+//////////////////////////////////////////////////////////////////////
+__hackLocal = function(_)
+
+    libFiles = HACKS.getLocalLibraries()
+    for library in libFiles
+        memCache = memoryCache.search([{"LIBRARY": library.lib_name, "VERSION": library.version}])
+        if not memCache or memCache.len == 0 then
+            print("Scanning: " + library.lib_name + " v" + library.version)
+            for hack in HACKS.scanLocal(library)
+                cacheData = [hack.LIBRARY, hack.VERSION, hack.ADDRESS, hack.VALUE, ""].join(" ")
+                memoryCache.add(cacheData)
+            end for
+
+            memCache = memoryCache.search([{"LIBRARY": library.lib_name, "VERSION": library.version}])
+        end if
+        
+        for exploit in memCache
+            print("Attempting: " + exploit.ADDRESS + " " + exploit.VALUE)
+            result = library.overflow(exploit.ADDRESS, exploit.VALUE, "password")
+            if result and not exploit.TYPE then 
+                if typeof(result) == "number" then result = "priv"
+                record = [exploit.LIBRARY, exploit.VERSION, exploit.ADDRESS, exploit.VALUE, ""].join(" ")
+                newRecord = [exploit.LIBRARY, exploit.VERSION, exploit.ADDRESS, exploit.VALUE, result].join(" ")
+                memoryCache.update(record, newRecord)
+            end if
+            print("\n")
+        end for
+    end for
+    user_input("Press enter to continue")
+end function
+
+//////////////////////////////////////////////////////////////////////
 //  Program
 //////////////////////////////////////////////////////////////////////
 wifiCache = IO.Cache.create(home_dir + "/wifi.cache", "ESSID BSSID PASSWORD")
+memoryCache = IO.Cache.create(home_dir + "/memory.cache", "LIBRARY VERSION ADDRESS VALUE TYPE")
+
+metaxploit = IO.getLibrary("metaxploit.so")
+if not metaxploit then return exit("Error: Could not find 'metaxploit.so'.")
+crypto = IO.getLibrary("crypto.so")
+if not crypto then return exit("Error: Could not find 'crypto.so'.")
 
 menu = new UI.Menu
 

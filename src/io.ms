@@ -77,11 +77,27 @@ __findFilePath = function(fileName)
 		for file in files
 			if file.name != fileName then continue
 			result = file.path
-			break;
+			break
 		end for
         if result then break
 	end for
 	return result
+end function
+
+__getLibFiles = function()
+	computer = __getComputer()
+	folder = computer.File("/lib")
+	if not folder.is_folder then return print("ERROR: /lib is not a folder")
+	
+	results = []
+	for file in folder.get_files()
+		fileExt = file.path[file.path.lastIndexOf("."):]
+		if fileExt != ".so" then continue
+
+		results.push(file.path)
+	end for
+
+	return results
 end function
 
 __getLibrary = function(libname = "metaxploit.so")
@@ -148,6 +164,20 @@ __addCache = function(value)
     IO.writeFile(self.path, value, true)
 end function
 
+__updateCache = function(oldValue, newValue)
+    if not self.file then return "Cache not yet created"
+	newContent = []
+	content = IO.readFile(self.path)
+	for line in content
+		if line == oldValue then
+			newContent.push(newValue)
+		else
+			newContent.push(line)
+		end if
+	end for
+    IO.writeFile(self.path, newContent.join(char(10)))
+end function
+
 //////////////////////////////////////////////////////////////////////
 //  Namespace setup
 //////////////////////////////////////////////////////////////////////
@@ -159,6 +189,7 @@ IO.writeFile = @__writeFile
 IO.overwriteFile = @__overwriteFile
 IO.createFile = @__createFile
 IO.getLibrary = @__getLibrary
+IO.getLibraryFiles = @__getLibFiles
 
 IO.Cache = {}
 IO.Cache.path = ""
@@ -166,3 +197,4 @@ IO.Cache.file = null
 IO.Cache.create = @__createCache
 IO.Cache.search = @__searchCache
 IO.Cache.add = @__addCache
+IO.Cache.update = @__updateCache
